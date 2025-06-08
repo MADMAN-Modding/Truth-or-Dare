@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::env;
 
 use dotenv::dotenv;
@@ -17,7 +16,8 @@ struct Handler;
 
 enum QuestionType {
     TRUTH,
-    DARE
+    DARE,
+    NONE
 }
 
 #[tokio::main]
@@ -60,7 +60,6 @@ impl EventHandler for Handler {
         let row = CreateActionRow::Buttons(vec![truth_button, dare_button]);
 
         let builder = CreateMessage::new()
-            .content("Hello, World!")
             .embed(embed)
             .components(vec![row]);
 
@@ -72,14 +71,18 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        println!("{}", interaction.id());
-
         if let Some(component_interaction) = interaction.message_component() {
             println!("{}", component_interaction.user.mention().to_string());
 
+            let question_type: QuestionType = match component_interaction.data.custom_id.as_str() {
+                "truth" => QuestionType::TRUTH,
+                "dare" => QuestionType::DARE,
+                _ => QuestionType::NONE
+            };
+
             let response = CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::new()
-                    .embed(embed_text(QuestionType::DARE).await)
+                    .embed(embed_text(question_type).await)
                     .button(truth_button())
                     .button(dare_button()),
             );
@@ -99,15 +102,15 @@ impl EventHandler for Handler {
 }
 
 async fn embed_text(question_type: QuestionType) -> CreateEmbed {
-    // The create message builder allows you to easily create embeds and messages using a
-    // builder syntax.
-    // This example will create a message that says "Hello, World!", with an embed that has
-    // a title, description, an image, three fields, and a footer.
-    // let footer = CreateEmbedFooter::new("This is a footer");
+    let description = match question_type {
+        QuestionType::TRUTH => "truth",
+        QuestionType::DARE => "dare",
+        QuestionType::NONE => "Error"
+    };
 
     let embed = CreateEmbed::new()
         .title("Truth or Dare")
-        .description("DARE_OR_TRUTH")
+        .description(description)
         // Add a timestamp for the current time
         // This also accepts a rfc3339 Timestamp
         .timestamp(Timestamp::now());
