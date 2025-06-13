@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 dotenv = "0.15.0"
 serenity = "0.12.4"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
 tokio = {version = "1.45.1", features = ["full"] }
