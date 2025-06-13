@@ -8,8 +8,9 @@ use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 
+
 use crate::embed::{dare_button, embed_text, truth_button};
-use crate::questions::QuestionType;
+use crate::questions::{Question, QuestionType};
 
 pub struct Bot {
     pub database: sqlx::SqlitePool,
@@ -24,7 +25,7 @@ impl EventHandler for Bot {
             _ => return,
         };
 
-        let embed = embed_text(question_type).await;
+        let embed = embed_text(&self, question_type).await;
 
         let row = CreateActionRow::Buttons(vec![truth_button(), dare_button()]);
 
@@ -49,7 +50,7 @@ impl EventHandler for Bot {
 
             let response = CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::new()
-                    .embed(embed_text(question_type).await)
+                    .embed(embed_text(&self, question_type).await)
                     .button(truth_button())
                     .button(dare_button()),
             );
@@ -65,5 +66,23 @@ impl EventHandler for Bot {
 
     async fn ready(&self, _: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
+    }
+}
+
+impl Bot {
+    pub async fn get_random_question(&self, question_type: QuestionType) -> Option<Question> {
+        let query = r#"
+            SELECT * FROM questions
+            WHERE question_type = ?1 AND rating = 'PG'
+            ORDER BY RANDOM()
+            LIMIT 1
+        "#;
+
+        sqlx::query_as::<_, Question>(query)
+            .bind(question_type.to_string())
+            .fetch_optional(&self.database)
+            .await
+            .ok()
+            .flatten()
     }
 }

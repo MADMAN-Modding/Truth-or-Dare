@@ -1,7 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use sqlx::Decode;
+use sqlx::{Decode, Sqlite, Type};
 use sqlx::sqlite::SqliteValueRef;
 
 /// Enum with implementations for the question type
@@ -50,5 +50,11 @@ impl<'r> Decode<'r, sqlx::Sqlite> for QuestionType {
     fn decode(value: SqliteValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
         let s = <String as Decode<sqlx::Sqlite>>::decode(value)?;
         Ok(QuestionType::from_str(s.as_str())?)
+    }
+}
+
+impl Type<Sqlite> for QuestionType {
+    fn type_info() -> sqlx::sqlite::SqliteTypeInfo {
+        <String as Type<Sqlite>>::type_info()
     }
 }

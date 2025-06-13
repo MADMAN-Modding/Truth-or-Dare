@@ -1,19 +1,16 @@
 use serenity::all::{ButtonStyle, CreateButton, CreateEmbed, Timestamp};
 
-use crate::questions::QuestionType;
+use crate::{bot::Bot, questions::QuestionType};
 
-pub async fn embed_text(question_type: QuestionType) -> CreateEmbed {
-    let description = match question_type {
-        QuestionType::TRUTH => "truth",
-        QuestionType::DARE => "dare",
-        QuestionType::NONE => "Error",
+pub async fn embed_text(bot: &Bot, question_type: QuestionType) -> CreateEmbed {
+    let description = match bot.get_random_question(question_type).await {
+        Some(question) => question.prompt,
+        None => format!("No {:?} questions found", question_type)
     };
 
     let embed = CreateEmbed::new()
         .title("Truth or Dare")
         .description(description)
-        // Add a timestamp for the current time
-        // This also accepts a rfc3339 Timestamp
         .timestamp(Timestamp::now());
 
     embed
