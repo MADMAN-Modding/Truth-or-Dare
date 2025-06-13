@@ -113,7 +113,11 @@ impl EventHandler for Bot {
                         .find(|o| o.name == name)
                         .and_then(|o| o.value.as_str())
                 };
-                let question = get_option("question").unwrap_or("");
+                // Sanitize input to remove potentially dangerous characters
+                let question = get_option("question")
+                    .unwrap_or("")
+                    .replace(|c: char| c == '"' || c == '\'' || c == ';' || c == '\\', "");
+
                 let question_type = get_option("question_type")
                                     .and_then(|s| QuestionType::from_str(s.to_uppercase().as_str()).ok())
                                     .unwrap_or(QuestionType::NONE);
@@ -128,7 +132,7 @@ impl EventHandler for Bot {
                     sqlx::query(
                         r#"INSERT INTO questions (prompt, question_type, rating) VALUES (?1, ?2, ?3)"#,
                     )
-                    .bind(question)
+                    .bind(&question)
                     .bind(question_type.to_string())
                     .bind(rating)
                     .execute(&self.database)
