@@ -1,13 +1,17 @@
 use std::env;
 
 use dotenv::dotenv;
-use serenity::prelude::*;
+use serenity::{all::GatewayIntents, Client};
 use truth_or_dare_bot::bot::Bot;
 
 #[tokio::main]
 async fn main() {
     // Load environment variables from the .env file
     dotenv().ok();
+
+    unsafe {
+        env::set_var("DATABASE_URL", "sqlite://database.sqlite");
+    }
 
     // Configure the client with your Discord bot token in the environment.
     let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
