@@ -25,7 +25,7 @@ impl EventHandler for Bot {
             _ => return,
         };
 
-        let embed = embed_text(&self, question_type).await;
+        let embed = embed_text(&self, question_type, "PG-13").await;
 
         let row = CreateActionRow::Buttons(vec![truth_button(), dare_button()]);
 
@@ -50,7 +50,7 @@ impl EventHandler for Bot {
 
             let response = CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::new()
-                    .embed(embed_text(&self, question_type).await)
+                    .embed(embed_text(&self, question_type, "PG-13").await)
                     .button(truth_button())
                     .button(dare_button()),
             );
@@ -70,16 +70,17 @@ impl EventHandler for Bot {
 }
 
 impl Bot {
-    pub async fn get_random_question(&self, question_type: QuestionType) -> Option<Question> {
+    pub async fn get_random_question(&self, question_type: QuestionType, question_rating: &str) -> Option<Question> {
         let query = r#"
             SELECT * FROM questions
-            WHERE question_type = ?1 AND rating = 'PG'
+            WHERE question_type = ?1 AND rating = ?2
             ORDER BY RANDOM()
             LIMIT 1
         "#;
 
         sqlx::query_as::<_, Question>(query)
             .bind(question_type.to_string())
+            .bind(question_rating.to_string())
             .fetch_optional(&self.database)
             .await
             .ok()

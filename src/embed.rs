@@ -1,16 +1,37 @@
+use rand::random_bool;
 use serenity::all::{ButtonStyle, CreateButton, CreateEmbed, Timestamp};
 
-use crate::{bot::Bot, questions::QuestionType};
+use crate::{bot::Bot, questions::QuestionType, other_impl::FooterMaker};
 
-pub async fn embed_text(bot: &Bot, question_type: QuestionType) -> CreateEmbed {
-    let description = match bot.get_random_question(question_type).await {
-        Some(question) => question.prompt,
-        None => format!("No {:?} questions found", question_type)
+pub async fn embed_text(bot: &Bot, question_type: QuestionType, rating_limit: &str) -> CreateEmbed {
+    let (description, rating) = loop {
+        // If the limit is PG, question rating is PG
+        // If it is PG-13, it has a random chance of the rating
+        let rating : &str = match rating_limit {
+            "PG-13" => {
+                if random_bool(0.5) {
+                    "PG-13"
+                } else {
+                    "PG"
+                }
+
+            },
+            _ => "PG",  
+        };
+
+        let question = bot.get_random_question(question_type, rating).await;
+
+        if question.is_some() {
+            let question = question.unwrap();
+
+            break (question.prompt, question.rating);
+        }
     };
 
     let embed = CreateEmbed::new()
         .title("Truth or Dare")
         .description(description)
+        .footer(rating.to_footer())
         .timestamp(Timestamp::now());
 
     embed
