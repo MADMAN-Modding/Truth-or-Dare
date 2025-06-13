@@ -1,7 +1,12 @@
 use serenity::all::{CommandOptionType, CreateCommand, CreateCommandOption, Permissions};
 
 pub fn create_commands() -> Vec<CreateCommand> {
-    vec![set_rating()]
+    vec![
+        set_rating(),
+        add_question_command(),
+        remove_question_command(),
+        list_questions_command(),
+    ]
 }
 
 fn set_rating() -> CreateCommand {
@@ -18,4 +23,61 @@ fn set_rating() -> CreateCommand {
             .add_string_choice("PG-13", "PG-13"),
         )
         .default_member_permissions(Permissions::ADMINISTRATOR)
+}
+
+fn add_question_command() -> CreateCommand {
+    CreateCommand::new("add_question")
+        .description("Add a question to the database")
+        .add_option(
+            CreateCommandOption::new(CommandOptionType::String, "question", "The question to add")
+                .required(true),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "question_type",
+                "The type of question (TRUTH or DARE)",
+            )
+            .required(true)
+            .add_string_choice("Truth", "TRUTH")
+            .add_string_choice("Dare", "DARE"),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "rating",
+                "The rating of the question (PG or PG-13)",
+            )
+            .required(true)
+            .add_string_choice("PG", "PG")
+            .add_string_choice("PG-13", "PG-13"),
+        )
+}
+
+fn remove_question_command() -> CreateCommand {
+    CreateCommand::new("remove_question")
+        .description("Remove a question from the database")
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "question",
+                "The question to remove",
+            )
+            .required(true),
+        )
+}
+
+fn list_questions_command() -> CreateCommand {
+    CreateCommand::new("list_questions")
+        .description("List all questions in the database")
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "rating",
+                "The rating of the questions to list (PG or PG-13)",
+            )
+            .required(false)
+            .add_string_choice("PG", "PG")
+            .add_string_choice("PG-13", "PG-13"),
+        )
 }

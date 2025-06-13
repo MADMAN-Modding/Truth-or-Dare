@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use serenity::all::{
     Command, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId,
     Interaction,
@@ -102,17 +104,76 @@ impl EventHandler for Bot {
                     .create_response(&ctx.http, format!("Rating set to {}.", rating).to_message())
                     .await
                     .ok();
+            } else if command.data.name == "add_question" {
+                let get_option = |name| {
+                    command
+                        .data
+                        .options
+                        .iter()
+                        .find(|o| o.name == name)
+                        .and_then(|o| o.value.as_str())
+                };
+                let question = get_option("question").unwrap_or("");
+                let question_type = get_option("question_type")
+                                    .and_then(|s| QuestionType::from_str(s.to_uppercase().as_str()).ok())
+                                    .unwrap_or(QuestionType::NONE);
+                let rating = get_option("rating").unwrap_or("PG");
+
+                if question.is_empty() {
+                    command
+                        .create_response(&ctx.http, "Question cannot be empty.".to_message())
+                        .await
+                        .ok();
+                } else {
+                    sqlx::query(
+                        r#"INSERT INTO questions (prompt, question_type, rating) VALUES (?1, ?2, ?3)"#,
+                    )
+                    .bind(question)
+                    .bind(question_type.to_string())
+                    .bind(rating)
+                    .execute(&self.database)
+                    .await
+                    .ok();
+
+                    command
+                        .create_response(
+                            &ctx.http,
+                            format!("Question added: {}", question).to_message(),
+                        )
+                        .await
+                        .ok();
+                }
+            } else if command.data.name == "list_questions" {
+                let questions: Vec<Question> = sqlx::query_as("SELECT * FROM questions")
+                    .fetch_all(&self.database)
+                    .await
+                    .unwrap_or_default();
+
+                let response = if questions.is_empty() {
+                    "No questions found.".to_string()
+                } else {
+                    questions
+                        .iter()
+                        .map(|q| format!("{} ({} - {})", q.prompt, q.question_type, q.rating))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                };
+
+                command
+                    .create_response(&ctx.http, response.to_message())
+                    .await
+                    .ok();
             }
         }
     }
+        async fn ready(&self, ctx: Context, ready: Ready) {
+            println!("{} is connected!", ready.user.name);
 
-    async fn ready(&self, ctx: Context, ready: Ready) {
-        println!("{} is connected!", ready.user.name);
-
-        for command in create_commands() {
-            Command::create_global_command(&ctx, command).await.unwrap();
+            for command in create_commands() {
+                Command::create_global_command(&ctx, command).await.unwrap();
+            }
         }
-    }
+    
 }
 
 impl Bot {
@@ -155,7 +216,7 @@ impl Bot {
 
     pub async fn get_guild_rating(&self, guild_id: Option<GuildId>) -> String {
         if guild_id.is_none() {
-            return "PG".to_string()
+            return "PG".to_string();
         } else {
             let reseult = sqlx::query_scalar::<_, String>(
                 r#"
