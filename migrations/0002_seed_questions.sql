@@ -1,3 +1,4 @@
+-- This migration file seeds the questions table with initial data.
 INSERT INTO questions (prompt, question_type, rating) VALUES
 ('Have you ever lied to your best friend?', 'TRUTH', 'PG'),
 ('Who is your crush?', 'TRUTH', 'PG-13'),

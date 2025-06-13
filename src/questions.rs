@@ -1,3 +1,6 @@
+/// Questions module for the bot
+/// Has the Question struct and QuestionType enum
+
 use std::fmt;
 use std::str::FromStr;
 
@@ -12,6 +15,7 @@ pub enum QuestionType {
     NONE,
 }
 
+/// Struct for a question in the database
 #[derive(sqlx::FromRow, Debug)]
 pub struct Question {
     pub id: i64,
@@ -53,6 +57,7 @@ impl<'r> Decode<'r, sqlx::Sqlite> for QuestionType {
     }
 }
 
+/// Get the type info for QuestionType
 impl Type<Sqlite> for QuestionType {
     fn type_info() -> sqlx::sqlite::SqliteTypeInfo {
         <String as Type<Sqlite>>::type_info()

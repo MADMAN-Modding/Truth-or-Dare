@@ -177,6 +177,8 @@ impl EventHandler for Bot {
 }
 
 impl Bot {
+    /// Retrieves a random question from the database based on the specified question type and rating.
+    /// Returns `None` if no question is found.
     pub async fn get_random_question(
         &self,
         question_type: QuestionType,

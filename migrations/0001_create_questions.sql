@@ -1,3 +1,4 @@
+-- This migration creates the questions table with the necessary fields and constraints.
 CREATE TABLE IF NOT EXISTS questions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     prompt TEXT NOT NULL,

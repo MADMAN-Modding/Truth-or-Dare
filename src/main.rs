@@ -27,13 +27,16 @@ async fn main() {
         .await
         .expect("Couldn't connect to database");
 
+    // Run the database migrations to ensure the schema is up to date.
     sqlx::migrate!("./migrations")
         .run(&database)
         .await
         .expect("Couldn't run database migrations");
 
+    // Create the bot instance with the database connection.
     let bot = Bot { database };
 
+    // Create a new client with the bot token and intents, and set the event handler to the bot.
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
@@ -42,7 +45,7 @@ async fn main() {
         .await
         .expect("Err creating client");
 
-    if let Err(why) = client.start().await {
-        println!("Client error: {why:?}");
+    if let Err(error) = client.start().await {
+        println!("Client error: {error:?}");
     }
 }
