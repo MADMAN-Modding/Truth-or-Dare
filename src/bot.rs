@@ -1,23 +1,19 @@
-use std::str::FromStr;
-
-use serenity::all::{
-    Command, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId,
-    Interaction,
-};
-
+use serenity::all::{Command, Context, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, EventHandler, GuildId, Interaction, Message, Ready};
 use serenity::async_trait;
-use serenity::builder::CreateMessage;
-use serenity::model::channel::Message;
-use serenity::model::gateway::Ready;
-use serenity::prelude::*;
 
 use crate::commands::create_commands;
-use crate::embed::{dare_button, embed_text, truth_button};
+use crate::embed::{dare_button, embed_text, send_page, truth_button};
+use crate::interactions::truth_or_dare;
 use crate::other_impl::MessageMaker;
 use crate::questions::{Question, QuestionType};
 
+use std::str::FromStr;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
 pub struct Bot {
     pub database: sqlx::SqlitePool,
+    pub questions: Arc<RwLock<Vec<Question>>>,
 }
 
 #[async_trait]
@@ -48,26 +44,11 @@ impl EventHandler for Bot {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Some(component_interaction) = interaction.clone().message_component() {
-            let question_type: QuestionType = match component_interaction.data.custom_id.as_str() {
-                "truth" => QuestionType::TRUTH,
-                "dare" => QuestionType::DARE,
-                _ => QuestionType::NONE,
+        if let Some(component_interaction) = interaction.clone().message_component() {            
+            let response = match component_interaction.data.custom_id.as_str() {
+                "truth" | "dare" => truth_or_dare(self, &component_interaction.data.custom_id, component_interaction.guild_id.unwrap()).await,
+                _ => CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()),
             };
-
-            let response = CreateInteractionResponse::Message(
-                CreateInteractionResponseMessage::new()
-                    .embed(
-                        embed_text(
-                            &self,
-                            question_type,
-                            self.get_guild_rating(component_interaction.guild_id).await,
-                        )
-                        .await,
-                    )
-                    .button(truth_button())
-                    .button(dare_button()),
-            );
 
             if let Err(why) = component_interaction
                 .create_response(&ctx.http, response)
@@ -93,7 +74,7 @@ impl EventHandler for Bot {
                     if let Err(err) = self.set_guild_rating(guild_id_i64, rating).await {
                         eprintln!("Failed to set guild rating: {err}");
                         command
-                            .create_response(&ctx.http, "Failed to set rating.".to_message())
+                            .create_response(&ctx.http, "Failed to set rating.".to_interaction_message())
                             .await
                             .ok();
                         return;
@@ -101,7 +82,7 @@ impl EventHandler for Bot {
                 }
 
                 command
-                    .create_response(&ctx.http, format!("Rating set to {}.", rating).to_message())
+                    .create_response(&ctx.http, format!("Rating set to {}.", rating).to_interaction_message())
                     .await
                     .ok();
             } else if command.data.name == "add_question" {
@@ -119,13 +100,13 @@ impl EventHandler for Bot {
                     .replace(|c: char| c == '"' || c == '\'' || c == ';' || c == '\\', "");
 
                 let question_type = get_option("question_type")
-                                    .and_then(|s| QuestionType::from_str(s.to_uppercase().as_str()).ok())
-                                    .unwrap_or(QuestionType::NONE);
+                    .and_then(|s| QuestionType::from_str(s.to_uppercase().as_str()).ok())
+                    .unwrap_or(QuestionType::NONE);
                 let rating = get_option("rating").unwrap_or("PG");
 
                 if question.is_empty() {
                     command
-                        .create_response(&ctx.http, "Question cannot be empty.".to_message())
+                        .create_response(&ctx.http, "Question cannot be empty.".to_interaction_message())
                         .await
                         .ok();
                 } else {
@@ -142,42 +123,36 @@ impl EventHandler for Bot {
                     command
                         .create_response(
                             &ctx.http,
-                            format!("Question added: {}", question).to_message(),
+                            format!("Question added: {}", question).to_interaction_message(),
                         )
                         .await
                         .ok();
                 }
             } else if command.data.name == "list_questions" {
-                let questions: Vec<Question> = sqlx::query_as("SELECT * FROM questions")
+                let questions = sqlx::query_as("SELECT * FROM questions")
                     .fetch_all(&self.database)
-                    .await
-                    .unwrap_or_default();
+                    .await;
+                {
+                    let mut qs = self.questions.write().await;
+                    *qs = questions.unwrap();
+                }
 
-                let response = if questions.is_empty() {
-                    "No questions found.".to_string()
-                } else {
-                    questions
-                        .iter()
-                        .map(|q| format!("{} ({} - {})", q.prompt, q.question_type, q.rating))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                };
-
+                // Send the response
+                let message = send_page(1, &self).await;
                 command
-                    .create_response(&ctx.http, response.to_message())
+                    .create_response(&ctx.http, message)
                     .await
                     .ok();
             }
         }
     }
-        async fn ready(&self, ctx: Context, ready: Ready) {
-            println!("{} is connected!", ready.user.name);
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        println!("{} is connected!", ready.user.name);
 
-            for command in create_commands() {
-                Command::create_global_command(&ctx, command).await.unwrap();
-            }
+        for command in create_commands() {
+            Command::create_global_command(&ctx, command).await.unwrap();
         }
-    
+    }
 }
 
 impl Bot {
