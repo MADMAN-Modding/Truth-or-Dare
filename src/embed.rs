@@ -71,13 +71,13 @@ pub fn dare_button() -> CreateButton {
 }
 
 /// Returns a `CreateButton` for the "Get Question" action
-pub fn previous_page_button() -> CreateButton {
-    make_button("previous_page", "Previous Page", ButtonStyle::Secondary)
+pub fn previous_page_button(page_number :usize) -> CreateButton {
+    make_button(format!("previous_page-{page_number}"), "Previous Page", ButtonStyle::Secondary)
 }
 
 /// Returns a `CreateButton` for the "Get Question" action
-pub fn next_page_button() -> CreateButton {
-    make_button("next_page", "Next Page", ButtonStyle::Secondary)
+pub fn next_page_button(page_number :usize) -> CreateButton {
+    make_button(format!("next_page-{page_number}").as_str(), "Next Page", ButtonStyle::Secondary)
 }
 
 /// Makes a button based on provided input
@@ -86,8 +86,8 @@ pub fn next_page_button() -> CreateButton {
 /// `id: &str` - ID of the button
 /// `label: &str` - Text to be displayed on the button
 /// `style: ButtonStyle` - Style of the button
-fn make_button(id: &str, label: &str, style: ButtonStyle) -> CreateButton {
-    CreateButton::new(id).label(label).style(style)
+fn make_button(id: impl AsRef<str>, label: &str, style: ButtonStyle) -> CreateButton {
+    CreateButton::new(id.as_ref()).label(label).style(style)
 }
 
 /// Sends a page of questions as an embed
@@ -96,23 +96,34 @@ pub fn send_page<'a>(
     bot: &'a Bot,
 ) -> Pin<Box<dyn Future<Output = CreateInteractionResponse> + Send + 'a>> {
     Box::pin(async move {
+        
+        
         let questions = &bot.questions.read().await;
-
+        
         let pages = questions.len() / 10 + if questions.len() % 10 > 0 { 1 } else { 0 };
-        let start = (page_number - 1) * 10;
+        // If the requested page is 0, send 0, otherwise, send page_number - 1
+        let start = (if page_number == 0 {0} else {page_number - 1}) * 10;
         let end = start + 10;
-        let questions = &questions[start..end.min(questions.len())];
-        if page_number > pages || page_number < 1 {
+        
+        println!("{page_number}-{pages}");
+        if page_number > pages {
+            println!("Page number out of bounds!!!!!! {page_number}-{pages}");
             return send_page(1, bot).await;
+        } else if  page_number < 1 {
+            return send_page(pages, bot).await;
         }
+
+        let questions = &questions[start..end.min(questions.len())];
+
         if questions.is_empty() {
+            println!("NO QUESTIONS!!!");
             return CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().add_embed("There are no questions available on this page."
                 .to_embed("No Questions", "List of Questions")));
         }
 
         let buttons = CreateActionRow::Buttons(vec![
-            previous_page_button(),
-            next_page_button()]);
+            previous_page_button(page_number-1),
+            next_page_button(page_number)]);
 
         // Format the questions for the response
         let questions: Vec<String> = questions

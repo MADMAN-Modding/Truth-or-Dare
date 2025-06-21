@@ -1,4 +1,4 @@
-use serenity::all::{Command, Context, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, EventHandler, GuildId, Interaction, Message, Ready};
+use serenity::all::{Command, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, EventHandler, GuildId, Interaction, Message, Ready};
 use serenity::async_trait;
 
 use crate::commands::create_commands;
@@ -47,7 +47,23 @@ impl EventHandler for Bot {
         if let Some(component_interaction) = interaction.clone().message_component() {            
             let response = match component_interaction.data.custom_id.as_str() {
                 "truth" | "dare" => truth_or_dare(self, &component_interaction.data.custom_id, component_interaction.guild_id.unwrap()).await,
-                _ => CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()),
+                // Next Page of Question List
+                interaction if interaction.contains("next_page-") => {
+                    let end = interaction.find("-").unwrap();
+
+                    let num: usize = interaction.split_at(end+1).1.parse().unwrap();
+
+                    send_page(num+1, self).await
+                },
+                // Previous Page of Question List
+                interaction if interaction.contains("previous_page-") => {
+                    let end = interaction.find("-").unwrap();
+
+                    let num: usize = interaction.split_at(end+1).1.parse().unwrap();
+
+                    send_page(num , self).await 
+                }
+                _ => CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().add_embed(CreateEmbed::new().description("Uh, you shouldn't have seen this..."))),
             };
 
             if let Err(why) = component_interaction
@@ -129,14 +145,15 @@ impl EventHandler for Bot {
                         .ok();
                 }
             } else if command.data.name == "list_questions" {
-                let questions = sqlx::query_as("SELECT * FROM questions")
-                    .fetch_all(&self.database)
-                    .await;
-                {
-                    let mut qs = self.questions.write().await;
-                    *qs = questions.unwrap();
-                }
+                let query = r#"
+                    SELECT * FROM questions WHERE guild_id = ?1
+                "#;
 
+                let questions = sqlx::query_as::<_, Question>(query).bind(command.guild_id.unwrap().get() as i64).fetch_all(&self.database).await.ok();
+        
+                let mut qs = self.questions.write().await;
+                *qs = questions.unwrap();
+        
                 // Send the response
                 let message = send_page(1, &self).await;
                 command
@@ -148,6 +165,14 @@ impl EventHandler for Bot {
     }
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
+
+        let questions = sqlx::query_as("SELECT * FROM questions")
+            .fetch_all(&self.database)
+            .await;
+        
+        let mut qs = self.questions.write().await;
+        *qs = questions.unwrap();
+        
 
         for command in create_commands() {
             Command::create_global_command(&ctx, command).await.unwrap();
@@ -199,7 +224,7 @@ impl Bot {
         if guild_id.is_none() {
             return "PG".to_string();
         } else {
-            let reseult = sqlx::query_scalar::<_, String>(
+            let result = sqlx::query_scalar::<_, String>(
                 r#"
             SELECT rating FROM guild_settings
             WHERE guild_id = ?
@@ -209,7 +234,7 @@ impl Bot {
             .fetch_optional(&self.database)
             .await;
 
-            match reseult.unwrap() {
+            match result.unwrap() {
                 Some(rating) => rating,
                 _ => "PG".to_string(),
             }
