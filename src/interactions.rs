@@ -16,6 +16,7 @@ pub async fn truth_or_dare(bot: &Bot, action: &str, guild_id: GuildId) -> Create
                     &bot,
                     question_type,
                     bot.get_guild_rating(Some(guild_id)).await,
+                    Some(guild_id)
                 )
                 .await,
             )

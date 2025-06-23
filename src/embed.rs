@@ -1,5 +1,5 @@
 use rand::random_bool;
-use serenity::all::{ButtonStyle, CreateActionRow, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, Timestamp};
+use serenity::all::{ButtonStyle, CreateActionRow, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId, Timestamp};
 
 use crate::{
     bot::Bot,
@@ -14,8 +14,15 @@ pub async fn embed_text(
     bot: &Bot,
     question_type: QuestionType,
     rating_limit: impl AsRef<str>,
+    guild_id: Option<GuildId>
 ) -> CreateEmbed {
     let mut loops: u8 = 0;
+
+    let guild_id: i64 = if guild_id.is_some() {
+        guild_id.unwrap().get() as i64
+    } else {
+        -1
+    };
 
     let (description, rating) = loop {
         // If the limit is PG, question rating is PG
@@ -31,7 +38,7 @@ pub async fn embed_text(
             _ => "PG",
         };
 
-        let question = bot.get_random_question(question_type, rating).await;
+        let question = bot.get_random_question(question_type, rating, guild_id).await;
 
         if question.is_some() {
             let question = question.unwrap();

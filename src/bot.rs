@@ -26,6 +26,7 @@ impl EventHandler for Bot {
             &self,
             question_type,
             self.get_guild_rating(msg.guild_id).await,
+            msg.guild_id
         )
         .await;
 
@@ -145,8 +146,9 @@ impl EventHandler for Bot {
             }
         }
     }
+
     async fn ready(&self, ctx: Context, ready: Ready) {
-        eprintln!("{} is connected!", ready.user.name);
+        println!("{} is connected!", ready.user.name);
 
         for command in create_commands() {
             Command::create_global_command(&ctx, command).await.unwrap();
@@ -161,10 +163,12 @@ impl Bot {
         &self,
         question_type: QuestionType,
         question_rating: &str,
+        guild_id: i64
     ) -> Option<Question> {
+        // !TODO - guild specific
         let query = r#"
             SELECT * FROM questions
-            WHERE question_type = ?1 AND rating = ?2
+            WHERE question_type = ?1 AND rating = ?2 AND guild_id = ?3 OR guild_id IS NULL
             ORDER BY RANDOM()
             LIMIT 1
         "#;
@@ -172,6 +176,7 @@ impl Bot {
         sqlx::query_as::<_, Question>(query)
             .bind(question_type.to_string())
             .bind(question_rating.to_string())
+            .bind(guild_id)
             .fetch_optional(&self.database)
             .await
             .ok()
@@ -195,9 +200,11 @@ impl Bot {
     }
 
     pub async fn get_guild_rating(&self, guild_id: Option<GuildId>) -> String {
+        // Default the guild_rating to PG
         if guild_id.is_none() {
-            return "PG".to_string();
+            "PG".to_string()
         } else {
+            // Query the rating for the guild_id
             let result = sqlx::query_scalar::<_, String>(
                 r#"
             SELECT rating FROM guild_settings
