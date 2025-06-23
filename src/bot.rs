@@ -3,17 +3,14 @@ use serenity::async_trait;
 
 use crate::commands::create_commands;
 use crate::embed::{dare_button, embed_text, send_page, truth_button};
-use crate::interactions::truth_or_dare;
+use crate::interactions::{next_page, previous_page, truth_or_dare};
 use crate::other_impl::MessageMaker;
 use crate::questions::{Question, QuestionType};
 
 use std::str::FromStr;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub struct Bot {
-    pub database: sqlx::SqlitePool,
-    pub questions: Arc<RwLock<Vec<Question>>>,
+    pub database: sqlx::SqlitePool
 }
 
 #[async_trait]
@@ -39,7 +36,7 @@ impl EventHandler for Bot {
         let msg = msg.channel_id.send_message(&ctx.http, builder).await;
 
         if let Err(why) = msg {
-            println!("Error sending message: {why:?}");
+            eprintln!("Error sending message: {why:?}");
         }
     }
 
@@ -49,19 +46,11 @@ impl EventHandler for Bot {
                 "truth" | "dare" => truth_or_dare(self, &component_interaction.data.custom_id, component_interaction.guild_id.unwrap()).await,
                 // Next Page of Question List
                 interaction if interaction.contains("next_page-") => {
-                    let end = interaction.find("-").unwrap();
-
-                    let num: usize = interaction.split_at(end+1).1.parse().unwrap();
-
-                    send_page(num+1, self).await
+                    next_page(&self, interaction, component_interaction.guild_id).await
                 },
                 // Previous Page of Question List
                 interaction if interaction.contains("previous_page-") => {
-                    let end = interaction.find("-").unwrap();
-
-                    let num: usize = interaction.split_at(end+1).1.parse().unwrap();
-
-                    send_page(num , self).await 
+                    previous_page(&self, interaction, component_interaction.guild_id).await
                 }
                 _ => CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().add_embed(CreateEmbed::new().description("Uh, you shouldn't have seen this..."))),
             };
@@ -70,7 +59,7 @@ impl EventHandler for Bot {
                 .create_response(&ctx.http, response)
                 .await
             {
-                println!("Failed to respond to interaction : {why:?}")
+                eprintln!("Failed to respond to interaction : {why:?}")
             }
         }
 
@@ -112,8 +101,7 @@ impl EventHandler for Bot {
                 };
                 // Sanitize input to remove potentially dangerous characters
                 let question = get_option("question")
-                    .unwrap_or("")
-                    .replace(|c: char| c == '"' || c == '\'' || c == ';' || c == '\\', "");
+                    .unwrap_or("");
 
                 let question_type = get_option("question_type")
                     .and_then(|s| QuestionType::from_str(s.to_uppercase().as_str()).ok())
@@ -127,11 +115,12 @@ impl EventHandler for Bot {
                         .ok();
                 } else {
                     sqlx::query(
-                        r#"INSERT INTO questions (prompt, question_type, rating) VALUES (?1, ?2, ?3)"#,
+                        r#"INSERT INTO questions (prompt, question_type, rating, guild_id) VALUES (?1, ?2, ?3, ?4)"#,
                     )
                     .bind(&question)
                     .bind(question_type.to_string())
                     .bind(rating)
+                    .bind(command.guild_id.unwrap().get() as i64)
                     .execute(&self.database)
                     .await
                     .ok();
@@ -145,17 +134,10 @@ impl EventHandler for Bot {
                         .ok();
                 }
             } else if command.data.name == "list_questions" {
-                let query = r#"
-                    SELECT * FROM questions WHERE guild_id = ?1
-                "#;
+                let questions = self.get_questions(command.guild_id).await;
 
-                let questions = sqlx::query_as::<_, Question>(query).bind(command.guild_id.unwrap().get() as i64).fetch_all(&self.database).await.ok();
-        
-                let mut qs = self.questions.write().await;
-                *qs = questions.unwrap();
-        
                 // Send the response
-                let message = send_page(1, &self).await;
+                let message = send_page(1, questions).await;
                 command
                     .create_response(&ctx.http, message)
                     .await
@@ -164,15 +146,7 @@ impl EventHandler for Bot {
         }
     }
     async fn ready(&self, ctx: Context, ready: Ready) {
-        println!("{} is connected!", ready.user.name);
-
-        let questions = sqlx::query_as("SELECT * FROM questions")
-            .fetch_all(&self.database)
-            .await;
-        
-        let mut qs = self.questions.write().await;
-        *qs = questions.unwrap();
-        
+        eprintln!("{} is connected!", ready.user.name);
 
         for command in create_commands() {
             Command::create_global_command(&ctx, command).await.unwrap();
@@ -238,6 +212,20 @@ impl Bot {
                 Some(rating) => rating,
                 _ => "PG".to_string(),
             }
+        }
+    }
+
+    pub async fn get_questions(&self, guild_id: Option<GuildId>) -> Vec<Question> {
+        if guild_id.is_none() {
+            Vec::new()
+        } else {
+            let query = r#"
+                SELECT * FROM questions WHERE guild_id = ?1 OR guild_id IS NULL
+                "#;
+
+            let questions = sqlx::query_as::<_, Question>(query).bind(guild_id.unwrap().get() as i64).fetch_all(&self.database).await.ok();
+
+            questions.unwrap()
         }
     }
 }

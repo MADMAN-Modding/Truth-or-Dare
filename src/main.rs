@@ -2,7 +2,6 @@ use std::env;
 
 use dotenv::dotenv;
 use serenity::{all::GatewayIntents, Client};
-use tokio::sync::RwLock;
 use truth_or_dare_bot::bot::Bot;
 
 #[tokio::main]
@@ -35,7 +34,7 @@ async fn main() {
         .expect("Couldn't run database migrations");
 
     // Create the bot instance with the database connection.
-    let bot = Bot { database, questions: std::sync::Arc::new(RwLock::new(vec![])) };
+    let bot = Bot { database };
 
     // Create a new client with the bot token and intents, and set the event handler to the bot.
     let intents = GatewayIntents::GUILD_MESSAGES
@@ -47,6 +46,6 @@ async fn main() {
         .expect("Err creating client");
 
     if let Err(error) = client.start().await {
-        println!("Client error: {error:?}");
+        eprintln!("Client error: {error:?}");
     }
 }

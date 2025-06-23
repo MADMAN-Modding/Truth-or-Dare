@@ -3,8 +3,8 @@ use serenity::all::{ButtonStyle, CreateActionRow, CreateButton, CreateEmbed, Cre
 
 use crate::{
     bot::Bot,
-    other_impl::{EmbedMaker, FooterMaker},
-    questions::QuestionType,
+    other_impl::{EmbedMaker, FooterMaker, MessageMaker},
+    questions::{Question, QuestionType},
 };
 
 use std::future::Future;
@@ -91,42 +91,36 @@ fn make_button(id: impl AsRef<str>, label: &str, style: ButtonStyle) -> CreateBu
 }
 
 /// Sends a page of questions as an embed
-pub fn send_page<'a>(
+pub fn send_page (
     page_number: usize,
-    bot: &'a Bot,
-) -> Pin<Box<dyn Future<Output = CreateInteractionResponse> + Send + 'a>> {
+    questions: Vec<Question>,
+) -> Pin<Box<dyn Future<Output = CreateInteractionResponse> + Send>> {
     Box::pin(async move {
         
-        
-        let questions = &bot.questions.read().await;
-        
+        if questions.is_empty() {
+            return "No custom questions found...".to_interaction_message();
+        }
+
         let pages = questions.len() / 10 + if questions.len() % 10 > 0 { 1 } else { 0 };
         // If the requested page is 0, send 0, otherwise, send page_number - 1
         let start = (if page_number == 0 {0} else {page_number - 1}) * 10;
         let end = start + 10;
         
-        println!("{page_number}-{pages}");
         if page_number > pages {
-            println!("Page number out of bounds!!!!!! {page_number}-{pages}");
-            return send_page(1, bot).await;
+            return send_page(1, questions).await;
         } else if  page_number < 1 {
-            return send_page(pages, bot).await;
+            return send_page(pages, questions).await;
         }
 
-        let questions = &questions[start..end.min(questions.len())];
-
-        if questions.is_empty() {
-            println!("NO QUESTIONS!!!");
-            return CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().add_embed("There are no questions available on this page."
-                .to_embed("No Questions", "List of Questions")));
-        }
+        // Questions to be sent to the quested page
+        let page_questions = &questions[start..end.min(questions.len())];
 
         let buttons = CreateActionRow::Buttons(vec![
             previous_page_button(page_number-1),
             next_page_button(page_number)]);
 
         // Format the questions for the response
-        let questions: Vec<String> = questions
+        let questions: Vec<String> = page_questions
             .iter()
             .map(|q| format!("{} ({} - {})", q.prompt, q.question_type, q.rating))
             .collect();

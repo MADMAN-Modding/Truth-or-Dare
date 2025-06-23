@@ -16,7 +16,7 @@ pub enum QuestionType {
 }
 
 /// Struct for a question in the database
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Clone)]
 pub struct Question {
     pub id: i64,
     pub prompt: String,
