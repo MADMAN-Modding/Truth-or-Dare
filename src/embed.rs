@@ -105,7 +105,7 @@ pub fn send_page (
     Box::pin(async move {
         
         if questions.is_empty() {
-            return "No custom questions found...".to_interaction_message();
+            return "No questions found...".to_interaction_message();
         }
 
         let pages = questions.len() / 10 + if questions.len() % 10 > 0 { 1 } else { 0 };
