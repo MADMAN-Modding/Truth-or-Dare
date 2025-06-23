@@ -78,14 +78,4 @@ fn remove_question_command() -> CreateCommand {
 fn list_questions_command() -> CreateCommand {
     CreateCommand::new("list_questions")
         .description("List all questions in the database")
-        .add_option(
-            CreateCommandOption::new(
-                CommandOptionType::String,
-                "rating",
-                "The rating of the questions to list (PG or PG-13)",
-            )
-            .required(false)
-            .add_string_choice("PG", "PG")
-            .add_string_choice("PG-13", "PG-13"),
-        )
 }
