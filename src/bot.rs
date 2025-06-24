@@ -1,15 +1,16 @@
 use serenity::all::{
-    Command, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse,
-    CreateInteractionResponseMessage, CreateMessage, EventHandler, GuildId, Interaction, Message,
+    Command, Context, CreateActionRow, CreateMessage, EventHandler, GuildId, Interaction, Message,
     Ready,
 };
 use serenity::async_trait;
 
 use crate::commands::{
-    add_question, create_commands, list_custom_questions, list_questions, set_rating,
+    add_question, create_commands, list_custom_questions, list_questions, set_question_permissions,
+    set_rating,
 };
 use crate::embed::{dare_button, embed_text, truth_button};
 use crate::interactions::{next_page, previous_page, truth_or_dare};
+use crate::other_impl::MessageMaker;
 use crate::questions::{Question, QuestionType};
 
 pub struct Bot {
@@ -63,11 +64,7 @@ impl EventHandler for Bot {
                 interaction if interaction.contains("previous_page-") => {
                     previous_page(&self, interaction, component_interaction.guild_id).await
                 }
-                _ => CreateInteractionResponse::Message(
-                    CreateInteractionResponseMessage::new().add_embed(
-                        CreateEmbed::new().description("Uh, you shouldn't have seen this..."),
-                    ),
-                ),
+                _ => "Uh, you shouldn't have seen this...".to_interaction_message(),
             };
 
             if let Err(why) = component_interaction
@@ -89,10 +86,7 @@ impl EventHandler for Bot {
                 }
                 "add_question" => {
                     command
-                        .create_response(
-                            &ctx.http,
-                            add_question(self, &command).await,
-                        )
+                        .create_response(&ctx.http, add_question(self, &command).await)
                         .await
                         .ok();
                 }
@@ -108,6 +102,12 @@ impl EventHandler for Bot {
                             &ctx.http,
                             list_custom_questions(&self, command.guild_id).await,
                         )
+                        .await
+                        .ok();
+                }
+                "set_question_permissions" => {
+                    command
+                        .create_response(&ctx.http, set_question_permissions(self, &command).await)
                         .await
                         .ok();
                 }
@@ -188,6 +188,65 @@ impl Bot {
             match result.unwrap() {
                 Some(rating) => rating,
                 _ => "PG".to_string(),
+            }
+        }
+    }
+
+    /// Sets the question permissions for a guild.
+    ///
+    /// # Parameters
+    /// * `guild_id: Option<GuildId>` - The guild to set permissions for
+    /// * `can_add_questions: bool` - Whether the guild can add questions
+    pub async fn set_guild_question_permissions(
+        &self,
+        guild_id: Option<GuildId>,
+        admin: bool,
+    ) -> Result<(), sqlx::Error> {
+        let rating = self.get_guild_rating(guild_id).await;
+
+        if let Some(guild_id) = guild_id {
+            match sqlx::query(
+                r#"
+                INSERT INTO guild_settings (guild_id, rating, admin)
+                VALUES (?, ?, ?)
+                ON CONFLICT(guild_id) DO UPDATE SET admin = excluded.admin
+                "#,
+            )
+            .bind(guild_id.get() as i64)
+            .bind(rating)
+            .bind(admin)
+            .execute(&self.database)
+            .await {
+                Err(e) => eprint!("{e}"),
+                _ => ()
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn get_guild_question_permissions(&self, guild_id: Option<GuildId>) -> bool {
+        // Default the guild_rating to PG
+        if guild_id.is_none() {
+            false
+        } else {
+            // Query the rating for the guild_id
+            let result = sqlx::query_scalar::<_, i64>(
+                r#"
+            SELECT admin FROM guild_settings
+            WHERE guild_id = ?
+            "#,
+            )
+            .bind(guild_id.unwrap().get() as i64)
+            .fetch_optional(&self.database)
+            .await;
+
+            match result {
+                Ok(val) => match val {
+                    
+                    Some(admin) => admin == 1,
+                    _ => false,
+                },
+                Err(e) => {eprintln!("{e}"); false}
             }
         }
     }

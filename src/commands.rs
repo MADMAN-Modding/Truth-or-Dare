@@ -1,13 +1,11 @@
 use std::str::FromStr;
 
-use serenity::all::{
-    CommandInteraction, CommandOptionType, CreateCommand, CreateCommandOption,
-    CreateInteractionResponse, GuildId, Permissions,
+use serenity::all::{CommandInteraction, CommandOptionType, CreateCommand, CreateCommandOption, CreateInteractionResponse, GuildId, Permissions
 };
 
 use crate::{bot::Bot, embed::send_page, menu_type::MenuType, other_impl::MessageMaker, questions::QuestionType};
 
-//// Creates a vector of commands for the bot
+/// Creates a vector of commands for the bot
 pub fn create_commands() -> Vec<CreateCommand> {
     vec![
         set_rating_command(),
@@ -15,6 +13,7 @@ pub fn create_commands() -> Vec<CreateCommand> {
         remove_question_command(),
         list_questions_command(),
         list_custom_questions_command(),
+        set_question_permissions_command()
     ]
 }
 
@@ -92,37 +91,49 @@ fn add_question_command() -> CreateCommand {
 }
 
 pub async fn add_question(bot: &Bot, command: &CommandInteraction) -> CreateInteractionResponse {
-    let get_option = |name| {
-        command
-            .data
-            .options
-            .iter()
-            .find(|o| o.name == name)
-            .and_then(|o| o.value.as_str())
-    };
-    // Sanitize input to remove potentially dangerous characters
-    let question = get_option("question").unwrap_or("");
+    // Check if the user is an admin in the guild using the permissions field on the command
+    let is_admin = command
+        .member
+        .as_ref()
+        .and_then(|member| member.permissions)
+        .map(|perms| perms.administrator())
+        .unwrap_or(false);
 
-    let question_type = get_option("question_type")
-        .and_then(|s| QuestionType::from_str(s.to_uppercase().as_str()).ok())
-        .unwrap_or(QuestionType::NONE);
-    let rating = get_option("rating").unwrap_or("PG");
+    if is_admin || !bot.get_guild_question_permissions(command.guild_id).await {   
+        let get_option = |name| {
+            command
+                .data
+                .options
+                .iter()
+                .find(|o| o.name == name)
+                .and_then(|o| o.value.as_str())
+        };
+        // Sanitize input to remove potentially dangerous characters
+        let question = get_option("question").unwrap_or("");
 
-    if question.is_empty() {
-        "Question cannot be empty.".to_interaction_message()
+        let question_type = get_option("question_type")
+            .and_then(|s| QuestionType::from_str(s.to_uppercase().as_str()).ok())
+            .unwrap_or(QuestionType::NONE);
+        let rating = get_option("rating").unwrap_or("PG");
+
+        if question.is_empty() {
+            "Question cannot be empty.".to_interaction_message()
+        } else {
+            sqlx::query(
+                        r#"INSERT INTO questions (prompt, question_type, rating, guild_id) VALUES (?1, ?2, ?3, ?4)"#,
+                    )
+                    .bind(&question)
+                    .bind(question_type.to_string())
+                    .bind(rating)
+                    .bind(command.guild_id.unwrap().get() as i64)
+                    .execute(&bot.database)
+                    .await
+                    .ok();
+
+            format!("Question added: {}", question).to_interaction_message()
+        }
     } else {
-        sqlx::query(
-                    r#"INSERT INTO questions (prompt, question_type, rating, guild_id) VALUES (?1, ?2, ?3, ?4)"#,
-                )
-                .bind(&question)
-                .bind(question_type.to_string())
-                .bind(rating)
-                .bind(command.guild_id.unwrap().get() as i64)
-                .execute(&bot.database)
-                .await
-                .ok();
-
-        format!("Question added: {}", question).to_interaction_message()
+        "You must be an admin to run this command".to_interaction_message()
     }
 }
 
@@ -163,4 +174,30 @@ pub async fn list_custom_questions(
     let questions = bot.get_custom_questions(guild_id).await;
 
     send_page(1, questions, MenuType::CUSTOM).await
+}
+
+fn set_question_permissions_command() -> CreateCommand {
+    CreateCommand::new("set_question_permissions")
+        .description("Set if only admins should be able to add questions")
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "admin",
+                "Allow only admins to add questions",
+            )
+            .required(true)
+            .add_string_choice("Yes", "true")
+            .add_string_choice("No", "false"),
+        )
+}
+
+pub async fn set_question_permissions(bot: &Bot, command: &CommandInteraction) -> CreateInteractionResponse {
+    let guild_id = command.guild_id;
+
+    let admin = command.data.options.iter().find(|c| c.name == "admin").unwrap().value.as_str().unwrap() == "true";
+
+    match bot.set_guild_question_permissions(guild_id, admin).await {
+        Ok(_) => format!("Admin only set to: {admin}").to_interaction_message(),
+        Err(_) => "Error setting permissions".to_interaction_message()
+    }
 }

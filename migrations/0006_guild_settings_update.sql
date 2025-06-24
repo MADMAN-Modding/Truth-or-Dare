@@ -1,0 +1,2 @@
+ALTER TABLE guild_settings
+ADD COLUMN admin BOOLEAN DEFAULT FALSE;
