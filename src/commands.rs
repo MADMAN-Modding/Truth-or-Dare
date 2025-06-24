@@ -183,7 +183,7 @@ fn set_question_permissions_command() -> CreateCommand {
             CreateCommandOption::new(
                 CommandOptionType::String,
                 "admin",
-                "Allow only admins to add questions",
+                "Only allow admins to add questions",
             )
             .required(true)
             .add_string_choice("Yes", "true")
@@ -197,7 +197,7 @@ pub async fn set_question_permissions(bot: &Bot, command: &CommandInteraction) -
     let admin = command.data.options.iter().find(|c| c.name == "admin").unwrap().value.as_str().unwrap() == "true";
 
     match bot.set_guild_question_permissions(guild_id, admin).await {
-        Ok(_) => format!("Admin only set to: {admin}").to_interaction_message(),
+        Ok(_) => format!("Admin only set to {admin}").to_interaction_message(),
         Err(_) => "Error setting permissions".to_interaction_message()
     }
 }
