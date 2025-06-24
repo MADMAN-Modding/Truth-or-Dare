@@ -2,6 +2,8 @@ use serenity::all::{
     CreateEmbed, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage,
 };
 
+use crate::menu_type::MenuType;
+
 /// Trait to convert into a footer
 pub trait FooterMaker {
     fn to_footer(&self) -> CreateEmbedFooter;
@@ -16,6 +18,11 @@ pub trait MessageMaker {
 /// Trait to convert to embed
 pub trait EmbedMaker {
     fn to_embed(&self, title: impl AsRef<str>, footer: impl AsRef<str>) -> CreateEmbed;
+}
+
+/// Trait to convert to MenuType
+pub trait FindMenuType {
+    fn to_menu_type(&self) -> MenuType;
 }
 
 // Implementations for FooterMaker and MessageMaker traits for &str and String types
@@ -96,5 +103,29 @@ impl EmbedMaker for String {
             .title(title.as_ref())
             .description(self.as_str())
             .footer(CreateEmbedFooter::new(footer.as_ref()))
+    }
+}
+
+impl FindMenuType for &str {
+    fn to_menu_type(&self) -> MenuType {
+        if self.contains("CUSTOM") {
+            MenuType::CUSTOM
+        } else if self.contains("DEFAULT") {
+            MenuType::DEFAULT
+        } else {
+            MenuType::DEFAULT
+        }
+    }
+}
+
+impl FindMenuType for String {
+    fn to_menu_type(&self) -> MenuType {
+        if self.contains("CUSTOM") {
+            MenuType::CUSTOM
+        } else if self.contains("DEFAULT") {
+            MenuType::DEFAULT
+        } else {
+            MenuType::DEFAULT
+        }
     }
 }

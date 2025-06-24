@@ -2,9 +2,7 @@ use rand::random_bool;
 use serenity::all::{ButtonStyle, CreateActionRow, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId, Timestamp};
 
 use crate::{
-    bot::Bot,
-    other_impl::{EmbedMaker, FooterMaker, MessageMaker},
-    questions::{Question, QuestionType},
+    bot::Bot, menu_type::{MenuToStr, MenuType}, other_impl::{EmbedMaker, FooterMaker, MessageMaker}, questions::{Question, QuestionType}
 };
 
 use std::future::Future;
@@ -78,13 +76,13 @@ pub fn dare_button() -> CreateButton {
 }
 
 /// Returns a `CreateButton` for the "Get Question" action
-pub fn previous_page_button(page_number :usize) -> CreateButton {
-    make_button(format!("previous_page-{page_number}"), "Previous Page", ButtonStyle::Secondary)
+pub fn previous_page_button(page_number :usize, menu_type: &str) -> CreateButton {
+    make_button(format!("previous_page-{page_number}:{menu_type}"), "Previous Page", ButtonStyle::Secondary)
 }
 
 /// Returns a `CreateButton` for the "Get Question" action
-pub fn next_page_button(page_number :usize) -> CreateButton {
-    make_button(format!("next_page-{page_number}").as_str(), "Next Page", ButtonStyle::Secondary)
+pub fn next_page_button(page_number :usize, menu_type: &str) -> CreateButton {
+    make_button(format!("next_page-{page_number}:{menu_type}").as_str(), "Next Page", ButtonStyle::Secondary)
 }
 
 /// Makes a button based on provided input
@@ -98,9 +96,10 @@ fn make_button(id: impl AsRef<str>, label: &str, style: ButtonStyle) -> CreateBu
 }
 
 /// Sends a page of questions as an embed
-pub fn send_page (
+pub fn send_page(
     page_number: usize,
     questions: Vec<Question>,
+    menu_type: MenuType
 ) -> Pin<Box<dyn Future<Output = CreateInteractionResponse> + Send>> {
     Box::pin(async move {
         
@@ -114,17 +113,17 @@ pub fn send_page (
         let end = start + 10;
         
         if page_number > pages {
-            return send_page(1, questions).await;
+            return send_page(1, questions, menu_type).await;
         } else if  page_number < 1 {
-            return send_page(pages, questions).await;
+            return send_page(pages, questions, menu_type).await;
         }
 
         // Questions to be sent to the quested page
         let page_questions = &questions[start..end.min(questions.len())];
 
         let buttons = CreateActionRow::Buttons(vec![
-            previous_page_button(page_number-1),
-            next_page_button(page_number)]);
+            previous_page_button(page_number-1, &menu_type.to_str()),
+            next_page_button(page_number, &menu_type.to_str())]);
 
         // Format the questions for the response
         let questions: Vec<String> = page_questions
