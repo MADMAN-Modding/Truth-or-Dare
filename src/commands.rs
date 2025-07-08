@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use serenity::all::{CommandInteraction, CommandOptionType, CreateCommand, CreateCommandOption, CreateInteractionResponse, GuildId, Permissions
 };
+use uuid::Uuid;
 
 use crate::{bot::Bot, embed::send_page, menu_type::MenuType, other_impl::MessageMaker, questions::QuestionType};
 
@@ -119,13 +120,16 @@ pub async fn add_question(bot: &Bot, command: &CommandInteraction) -> CreateInte
         if question.is_empty() {
             "Question cannot be empty.".to_interaction_message()
         } else {
+            let uid = Uuid::new_v4().to_string();
+
             sqlx::query(
-                        r#"INSERT INTO questions (prompt, question_type, rating, guild_id) VALUES (?1, ?2, ?3, ?4)"#,
+                        r#"INSERT INTO questions (prompt, question_type, rating, guild_id, uid) VALUES (?1, ?2, ?3, ?4, ?5)"#,
                     )
                     .bind(&question)
                     .bind(question_type.to_string())
                     .bind(rating)
                     .bind(command.guild_id.unwrap().get() as i64)
+                    .bind(uid)
                     .execute(&bot.database)
                     .await
                     .ok();
