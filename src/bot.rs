@@ -134,7 +134,7 @@ impl Bot {
         question_type: QuestionType,
         question_rating: &str,
         guild_id: i64,
-    ) -> Option<Question> {
+    ) -> Result<Option<Question>, sqlx::Error> {
         // !TODO - guild specific
         let query = r#"
             SELECT * FROM questions
@@ -143,14 +143,14 @@ impl Bot {
             LIMIT 1
         "#;
 
-        sqlx::query_as::<_, Question>(query)
-            .bind(question_type.to_string())
-            .bind(question_rating.to_string())
-            .bind(guild_id)
+        let question = sqlx::query_as::<sqlx::Sqlite, Question>(query)
+            .bind(&question_type.to_string())
+            .bind(question_rating)
+            .bind(guild_id as i64)
             .fetch_optional(&self.database)
-            .await
-            .ok()
-            .flatten()
+            .await?;
+
+        Ok(question)
     }
 
     pub async fn set_guild_rating(&self, guild_id: i64, rating: &str) -> Result<(), sqlx::Error> {

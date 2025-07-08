@@ -1,1 +1,0 @@
-ALTER TABLE questions ADD CONSTRAINT uid UNIQUE (uid);

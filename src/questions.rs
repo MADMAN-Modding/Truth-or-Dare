@@ -18,10 +18,11 @@ pub enum QuestionType {
 /// Struct for a question in the database
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct Question {
-    pub id: i64,
+    pub guild_id: i64,
     pub prompt: String,
     pub question_type: QuestionType,
     pub rating: String,
+    pub uid: String
 }
 
 /// Get the question type as printable text

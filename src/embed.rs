@@ -22,7 +22,7 @@ pub async fn embed_text(
         -1
     };
 
-    let (description, rating) = loop {
+    let (description, rating, uid) = loop {
         // If the limit is PG, question rating is PG
         // If it is PG-13, it has a random chance of the rating
         let rating: &str = match rating_limit.as_ref() {
@@ -38,17 +38,22 @@ pub async fn embed_text(
 
         let question = bot.get_random_question(question_type, rating, guild_id).await;
 
-        if question.is_some() {
-            let question = question.unwrap();
+        match &question {
+            Ok(_) => {},
+            Err(err) => println!("Err: {}", err)
+        }
 
-            break (question.prompt, question.rating);
+        if question.is_ok() {
+            let question = question.unwrap().unwrap();
+
+            break (question.prompt, question.rating, question.uid);
         }
 
         loops += 1;
 
         // This really should never happen, but if it does, this protects against infinite loops
         if loops == 5 {
-            break ("No Question Found".to_string(), "N/A".to_string());
+            break ("No Question Found".to_string(), "N/A".to_string(), "".to_string());
         }
     };
 
@@ -59,7 +64,7 @@ pub async fn embed_text(
             "Dare"
         })
         .description(description)
-        .footer(rating.to_footer())
+        .footer(format!("Rating: {} | UID: {}", rating, uid).to_footer())
         .timestamp(Timestamp::now());
 
     embed
