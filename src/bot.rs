@@ -1,12 +1,10 @@
 use serenity::all::{
-    Command, Context, CreateActionRow, CreateMessage, EventHandler, GuildId, Interaction, Message,
-    Ready,
+    Command, Context, CreateActionRow, CreateMessage, EventHandler, GuildId, Interaction, Message, Ready
 };
 use serenity::async_trait;
 
 use crate::commands::{
-    add_question, create_commands, list_custom_questions, list_questions, set_question_permissions,
-    set_rating,
+    add_question, create_commands, list_custom_questions, list_questions, remove_question, set_question_permissions, set_rating
 };
 use crate::embed::{dare_button, embed_text, truth_button};
 use crate::interactions::{next_page, previous_page, truth_or_dare};
@@ -111,6 +109,11 @@ impl EventHandler for Bot {
                         .await
                         .ok();
                 }
+                "remove_question" => {
+                    command.create_response(&ctx.http, remove_question(self, &command).await)
+                    .await
+                    .ok();
+                }
                 _ => {}
             }
         }
@@ -120,8 +123,13 @@ impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
 
+        // Lists all the commands and their ids
+        // for command in Command::get_global_commands(&ctx.http).await.unwrap() {
+        //     println!("{}-{}", command.name, command.id);
+        // }
+
         for command in create_commands() {
-            Command::create_global_command(&ctx, command).await.unwrap();
+            Command::create_global_command(&ctx.http, command).await.unwrap();
         }
     }
 }
@@ -298,6 +306,27 @@ impl Bot {
                 .ok();
 
             questions.unwrap()
+        }
+    }
+
+    pub async fn check_question_guild(&self, guild_id: Option<GuildId>, question_uid: &String) -> bool {
+        if guild_id.is_none() {
+            return false;
+        } else {
+            let query = r#"
+                SELECT * FROM questions WHERE guild_id = ?1 AND uid = ?2 LIMIT 1
+                "#;
+
+            let question = sqlx::query_as::<_, Question>(query)
+                .bind(guild_id.unwrap().get() as i64)
+                .bind(question_uid)
+                .fetch_optional(&self.database)
+                .await;
+
+            match question.unwrap() {
+                Some(val) => {println!("Prompt: {}", val.prompt); true},
+                None => false
+            }
         }
     }
 }

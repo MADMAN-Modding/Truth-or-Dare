@@ -1,10 +1,15 @@
 use std::str::FromStr;
 
-use serenity::all::{CommandInteraction, CommandOptionType, CreateCommand, CreateCommandOption, CreateInteractionResponse, GuildId, Permissions
+use serenity::all::{
+    CommandInteraction, CommandOptionType, CreateCommand, CreateCommandOption,
+    CreateInteractionResponse, GuildId, Permissions,
 };
 use uuid::Uuid;
 
-use crate::{bot::Bot, embed::send_page, menu_type::MenuType, other_impl::MessageMaker, questions::QuestionType};
+use crate::{
+    bot::Bot, embed::send_page, menu_type::MenuType, other_impl::MessageMaker,
+    questions::QuestionType,
+};
 
 /// Creates a vector of commands for the bot
 pub fn create_commands() -> Vec<CreateCommand> {
@@ -14,7 +19,7 @@ pub fn create_commands() -> Vec<CreateCommand> {
         remove_question_command(),
         list_questions_command(),
         list_custom_questions_command(),
-        set_question_permissions_command()
+        set_question_permissions_command(),
     ]
 }
 
@@ -31,7 +36,8 @@ fn set_rating_command() -> CreateCommand {
             )
             .required(true)
             .add_string_choice("PG", "PG")
-            .add_string_choice("PG-13", "PG-13"),
+            .add_string_choice("PG-13", "PG-13")
+            .add_string_choice("PG & PG-13", "ALL"),
         )
         // Only allow users with the Administrator permission to use this command
         .default_member_permissions(Permissions::ADMINISTRATOR)
@@ -54,8 +60,8 @@ pub async fn set_rating(bot: &Bot, command: &CommandInteraction) -> CreateIntera
             return "Failed to set rating.".to_interaction_message();
         }
     }
-     
-    format!("Rating set to {}.", rating).to_interaction_message()    
+
+    format!("Rating set to {}.", rating).to_interaction_message()
 }
 
 /// Command to add a question to the database
@@ -100,7 +106,7 @@ pub async fn add_question(bot: &Bot, command: &CommandInteraction) -> CreateInte
         .map(|perms| perms.administrator())
         .unwrap_or(false);
 
-    if is_admin || !bot.get_guild_question_permissions(command.guild_id).await {   
+    if is_admin || !bot.get_guild_question_permissions(command.guild_id).await {
         let get_option = |name| {
             command
                 .data
@@ -147,11 +153,42 @@ fn remove_question_command() -> CreateCommand {
         .add_option(
             CreateCommandOption::new(
                 CommandOptionType::String,
-                "question",
-                "The question to remove",
+                "question_uid",
+                "The question to be removed",
             )
             .required(true),
         )
+}
+
+pub async fn remove_question(bot: &Bot, command: &CommandInteraction) -> CreateInteractionResponse {
+    let guild_id = command.guild_id;
+
+    let question_uid = command
+        .data
+        .options
+        .iter()
+        .find(|o| o.name == "question_uid")
+        .and_then(|o| o.value.as_str())
+        .unwrap()
+        .to_string();
+
+    let query = r#"DELETE FROM questions WHERE guild_id = ?1 AND uid = ?2"#;
+
+    match bot.check_question_guild(guild_id, &question_uid).await {
+        true => {
+            match sqlx::query(query)
+                .bind(guild_id.unwrap().get() as i64)
+                .bind(&question_uid)
+                .execute(&bot.database)
+                .await
+            {
+                Ok(_) => format!("Question with uid: {} has been removed.", question_uid)
+                    .to_interaction_message(),
+                Err(e) => e.to_string().to_interaction_message(),
+            }
+        }
+        false => "You can't remove a question outside of your server!".to_interaction_message(),
+    }
 }
 
 fn list_questions_command() -> CreateCommand {
@@ -195,13 +232,25 @@ fn set_question_permissions_command() -> CreateCommand {
         )
 }
 
-pub async fn set_question_permissions(bot: &Bot, command: &CommandInteraction) -> CreateInteractionResponse {
+pub async fn set_question_permissions(
+    bot: &Bot,
+    command: &CommandInteraction,
+) -> CreateInteractionResponse {
     let guild_id = command.guild_id;
 
-    let admin = command.data.options.iter().find(|c| c.name == "admin").unwrap().value.as_str().unwrap() == "true";
+    let admin = command
+        .data
+        .options
+        .iter()
+        .find(|c| c.name == "admin")
+        .unwrap()
+        .value
+        .as_str()
+        .unwrap()
+        == "true";
 
     match bot.set_guild_question_permissions(guild_id, admin).await {
         Ok(_) => format!("Admin only set to {admin}").to_interaction_message(),
-        Err(_) => "Error setting permissions".to_interaction_message()
+        Err(_) => "Error setting permissions".to_interaction_message(),
     }
 }

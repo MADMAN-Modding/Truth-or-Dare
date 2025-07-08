@@ -26,13 +26,14 @@ pub async fn embed_text(
         // If the limit is PG, question rating is PG
         // If it is PG-13, it has a random chance of the rating
         let rating: &str = match rating_limit.as_ref() {
-            "PG-13" => {
+            "ALL" => {
                 if random_bool(0.5) {
                     "PG-13"
                 } else {
                     "PG"
                 }
-            }
+            },
+            "PG-13" => "PG-13",
             _ => "PG",
         };
 
@@ -133,7 +134,16 @@ pub fn send_page(
         // Format the questions for the response
         let questions: Vec<String> = page_questions
             .iter()
-            .map(|q| format!("{} ({} - {})", q.prompt, q.question_type, q.rating))
+            .map(|question| {
+                // This prevents the uid of default questions from being sent to the user
+                let uid =  match menu_type {
+                    MenuType::CUSTOM => format!(" UID: {}", question.uid),
+                    MenuType::DEFAULT => "".to_string()
+                };
+
+                format!("{} ({} - {}){}", question.prompt, question.question_type, question.rating, uid)
+            
+            })
             .collect();
         // Join the questions into a single string
         let response = format!("{}", questions.join("\n"));
