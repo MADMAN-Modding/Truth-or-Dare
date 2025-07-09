@@ -146,7 +146,7 @@ impl Bot {
         // !TODO - guild specific
         let query = r#"
             SELECT * FROM questions
-            WHERE question_type = ?1 AND rating = ?2 AND guild_id = ?3 OR guild_id IS NULL
+            WHERE question_type = ?1 AND rating = ?2 AND (guild_id = ?3 OR guild_id IS NULL)
             ORDER BY RANDOM()
             LIMIT 1
         "#;
@@ -157,7 +157,7 @@ impl Bot {
             .bind(guild_id as i64)
             .fetch_optional(&self.database)
             .await?;
-
+        
         Ok(question)
     }
 
