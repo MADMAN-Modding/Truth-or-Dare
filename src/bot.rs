@@ -56,10 +56,18 @@ impl EventHandler for Bot {
                 }
                 // Next Page of Question List
                 interaction if interaction.contains("next_page-") => {
+                    // Delete the original message
+                    if let Err(e) = component_interaction.message.delete(&ctx.http).await {
+                        eprintln!("Failed to delete message: {e:?}");
+                    }
                     next_page(&self, interaction, component_interaction.guild_id).await
                 }
                 // Previous Page of Question List
                 interaction if interaction.contains("previous_page-") => {
+                    // Delete the original message
+                    if let Err(e) = component_interaction.message.delete(&ctx.http).await {
+                        eprintln!("Failed to delete message: {e:?}");
+                    }
                     previous_page(&self, interaction, component_interaction.guild_id).await
                 }
                 _ => "Uh, you shouldn't have seen this...".to_interaction_message(),
