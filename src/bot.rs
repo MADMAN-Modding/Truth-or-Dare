@@ -162,6 +162,8 @@ impl Bot {
     }
 
     pub async fn set_guild_rating(&self, guild_id: i64, rating: &str) -> Result<(), sqlx::Error> {
+        println!("{}", rating);
+
         sqlx::query(
             r#"
             INSERT INTO guild_settings (guild_id, rating)

@@ -56,7 +56,11 @@ pub async fn set_rating(bot: &Bot, command: &CommandInteraction) -> CreateIntera
     if let Some(guild_id) = command.guild_id {
         let guild_id_i64 = guild_id.get() as i64;
 
-        if let Err(_) = bot.set_guild_rating(guild_id_i64, rating).await {
+        if let Err(err) = bot.set_guild_rating(guild_id_i64, rating).await {
+            if command.user.id == 741999030623535168 {
+                println!("{}", err);
+            }
+            
             return "Failed to set rating.".to_interaction_message();
         }
     }
