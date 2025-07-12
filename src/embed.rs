@@ -8,6 +8,13 @@ use crate::{
 use std::future::Future;
 use std::pin::Pin;
 
+/// Makes the embed that is sent to the front end for questions
+/// 
+/// # Parameters
+/// * `bot: &Bot` - Bot instance for database interaction
+/// * 'question_type: QuestionType' - The type of question being asked
+/// * `rating_limit: impl AsRef<str>` - What rating the question must be
+/// * 'guild_id: Option<GuildId>' - GuildId to use when looking at the database
 pub async fn embed_text(
     bot: &Bot,
     question_type: QuestionType,
@@ -17,17 +24,10 @@ pub async fn embed_text(
     // Tracks how many times it has tried to find a question
     let mut loops: u8 = 0;
 
-    // If the guild id is none, use the id of -1
-    let guild_id: i64 = if guild_id.is_some() {
-        guild_id.unwrap().get() as i64
-    } else {
-        -1
-    };
-
     // Gets the description, rating, and uid of the question
     let question: Question = loop {
-        // If the limit is PG, question rating is PG
-        // If it is PG-13, it has a random chance of the rating
+        // Sets the rating, will be the set rating unless it is ALL
+        // If it is ALL, it has a random change of PG or PG-13
         let rating: &str = match rating_limit.as_ref() {
             "ALL" => {
                 if random_bool(0.5) {
@@ -40,19 +40,17 @@ pub async fn embed_text(
             _ => "PG",
         };
 
-        let question = bot.get_random_question(question_type, rating, Some(GuildId::new(guild_id as u64))).await;
+        // Gets a random question from the database
+        let question = bot.get_random_question(question_type, rating, guild_id).await;
 
-        match &question {
-            Ok(_) => {},
-            Err(err) => println!("Err: {}", err)
-        }
-
+        // Unwrap the question and return the unwrap if it is Ok
         if question.is_ok() {
             let question = question.unwrap().unwrap();
 
             break question;
         }
 
+        // Increments how many loops have been completed
         loops += 1;
 
         // This really should never happen, but if it does, this protects against infinite loops
@@ -61,8 +59,9 @@ pub async fn embed_text(
         }
     };
 
+    // Creates the embed to send to the client
     let embed = CreateEmbed::new()
-        .title(if question_type.to_string() == "TRUTH" {
+        .title(if question_type == QuestionType::TRUTH {
             "Truth"
         } else {
             "Dare"
@@ -97,9 +96,9 @@ pub fn next_page_button(page_number :usize, menu_type: &str) -> CreateButton {
 /// Makes a button based on provided input
 ///
 /// # Parameters
-/// `id: &str` - ID of the button
-/// `label: &str` - Text to be displayed on the button
-/// `style: ButtonStyle` - Style of the button
+/// * `id: &str` - ID of the button
+/// * `label: &str` - Text to be displayed on the button
+/// * `style: ButtonStyle` - Style of the button
 fn make_button(id: impl AsRef<str>, label: &str, style: ButtonStyle) -> CreateButton {
     CreateButton::new(id.as_ref()).label(label).style(style)
 }
