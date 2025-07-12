@@ -266,7 +266,7 @@ fn truth_command() -> CreateCommand {
 }
 
 pub async fn truth(bot: &Bot, command: &CommandInteraction) -> CreateInteractionResponse {
-    truth_or_dare(bot, "truth", command.guild_id.unwrap()).await
+    truth_or_dare(bot, "truth", command.guild_id).await
 }
 
 fn dare_command() -> CreateCommand {
@@ -275,5 +275,5 @@ fn dare_command() -> CreateCommand {
 }
 
 pub async fn dare(bot: &Bot, command: &CommandInteraction) -> CreateInteractionResponse {
-    truth_or_dare(bot, "dare", command.guild_id.unwrap()).await
+    truth_or_dare(bot, "dare", command.guild_id).await
 }

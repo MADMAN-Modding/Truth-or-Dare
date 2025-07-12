@@ -2,7 +2,7 @@ use rand::random_bool;
 use serenity::all::{ButtonStyle, CreateActionRow, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId, Timestamp};
 
 use crate::{
-    bot::Bot, menu_type::{MenuToStr, MenuType}, other_impl::{EmbedMaker, FooterMaker, MessageMaker}, questions::{Question, QuestionType}
+    bot::Bot, menu_type::{MenuToStr, MenuType}, other_impl::{EmbedMaker, FooterMaker, MessageMaker}, questions::{Question, QuestionTraits, QuestionType}
 };
 
 use std::future::Future;
@@ -14,15 +14,18 @@ pub async fn embed_text(
     rating_limit: impl AsRef<str>,
     guild_id: Option<GuildId>
 ) -> CreateEmbed {
+    // Tracks how many times it has tried to find a question
     let mut loops: u8 = 0;
 
+    // If the guild id is none, use the id of -1
     let guild_id: i64 = if guild_id.is_some() {
         guild_id.unwrap().get() as i64
     } else {
         -1
     };
 
-    let (description, rating, uid) = loop {
+    // Gets the description, rating, and uid of the question
+    let question: Question = loop {
         // If the limit is PG, question rating is PG
         // If it is PG-13, it has a random chance of the rating
         let rating: &str = match rating_limit.as_ref() {
@@ -47,14 +50,14 @@ pub async fn embed_text(
         if question.is_ok() {
             let question = question.unwrap().unwrap();
 
-            break (question.prompt, question.rating, question.uid);
+            break question;
         }
 
         loops += 1;
 
         // This really should never happen, but if it does, this protects against infinite loops
         if loops == 5 {
-            break ("No Question Found".to_string(), "N/A".to_string(), "".to_string());
+            break Question::new(-1, "N/A".to_string(), QuestionType::NONE, "PG-13".to_string(), "0".to_string());
         }
     };
 
@@ -64,8 +67,8 @@ pub async fn embed_text(
         } else {
             "Dare"
         })
-        .description(description)
-        .footer(format!("Rating: {} | UID: {}", rating, uid).to_footer())
+        .description(question.prompt)
+        .footer(format!("Rating: {} | UID: {}", question.rating, question.uid).to_footer())
         .timestamp(Timestamp::now());
 
     embed

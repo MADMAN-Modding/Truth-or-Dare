@@ -2,7 +2,7 @@ use serenity::all::{CreateInteractionResponse, CreateInteractionResponseMessage,
 
 use crate::{bot::Bot, embed::{dare_button, embed_text, send_page, truth_button}, menu_type::MenuType, other_impl::FindMenuType, questions::QuestionType};
 
-pub async fn truth_or_dare(bot: &Bot, action: &str, guild_id: GuildId) -> CreateInteractionResponse {
+pub async fn truth_or_dare(bot: &Bot, action: &str, guild_id: Option<GuildId>) -> CreateInteractionResponse {
     let question_type: QuestionType = match action {
         "truth" => QuestionType::TRUTH,
         "dare" => QuestionType::DARE,
@@ -15,8 +15,8 @@ pub async fn truth_or_dare(bot: &Bot, action: &str, guild_id: GuildId) -> Create
                 embed_text(
                     &bot,
                     question_type,
-                    bot.get_guild_rating(Some(guild_id)).await,
-                    Some(guild_id)
+                    bot.get_guild_rating(guild_id).await,
+                    guild_id
                 )
                 .await,
             )

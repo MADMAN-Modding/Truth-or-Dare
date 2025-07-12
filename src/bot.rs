@@ -50,7 +50,7 @@ impl EventHandler for Bot {
                     truth_or_dare(
                         self,
                         &component_interaction.data.custom_id,
-                        component_interaction.guild_id.unwrap(),
+                        component_interaction.guild_id,
                     )
                     .await
                 }
@@ -163,7 +163,7 @@ impl Bot {
     ) -> Result<Option<Question>, sqlx::Error> {
         let guild_id = match guild_id {
             Some(v) => v.get() as i64,
-            None => -1
+            None => 0
         };
 
         // !TODO - guild specific
