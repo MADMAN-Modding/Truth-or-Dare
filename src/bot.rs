@@ -4,7 +4,7 @@ use serenity::all::{
 use serenity::async_trait;
 
 use crate::commands::{
-    add_question, create_commands, list_custom_questions, list_questions, remove_question, set_question_permissions, set_rating
+    add_question, create_commands, dare, list_custom_questions, list_questions, remove_question, set_question_permissions, set_rating, truth
 };
 use crate::embed::{dare_button, embed_text, truth_button};
 use crate::interactions::{next_page, previous_page, truth_or_dare};
@@ -122,6 +122,16 @@ impl EventHandler for Bot {
                     .await
                     .ok();
                 }
+                "truth" => {
+                    command.create_response(&ctx.http, truth(self, &command).await)
+                    .await
+                    .ok();
+                }
+                "dare" => {
+                    command.create_response(&ctx.http, dare(self, &command).await)
+                    .await
+                    .ok();
+                }
                 _ => {}
             }
         }
@@ -149,8 +159,13 @@ impl Bot {
         &self,
         question_type: QuestionType,
         question_rating: &str,
-        guild_id: i64,
+        guild_id: Option<GuildId>,
     ) -> Result<Option<Question>, sqlx::Error> {
+        let guild_id = match guild_id {
+            Some(v) => v.get() as i64,
+            None => -1
+        };
+
         // !TODO - guild specific
         let query = r#"
             SELECT * FROM questions

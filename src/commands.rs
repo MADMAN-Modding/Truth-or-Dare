@@ -7,8 +7,7 @@ use serenity::all::{
 use uuid::Uuid;
 
 use crate::{
-    bot::Bot, embed::send_page, menu_type::MenuType, other_impl::MessageMaker,
-    questions::QuestionType,
+    bot::Bot, embed::send_page, interactions::truth_or_dare, menu_type::MenuType, other_impl::MessageMaker, questions::QuestionType
 };
 
 /// Creates a vector of commands for the bot
@@ -20,6 +19,8 @@ pub fn create_commands() -> Vec<CreateCommand> {
         list_questions_command(),
         list_custom_questions_command(),
         set_question_permissions_command(),
+        truth_command(),
+        dare_command()
     ]
 }
 
@@ -257,4 +258,22 @@ pub async fn set_question_permissions(
         Ok(_) => format!("Admin only set to {admin}").to_interaction_message(),
         Err(_) => "Error setting permissions".to_interaction_message(),
     }
+}
+
+fn truth_command() -> CreateCommand {
+    CreateCommand::new("truth")
+        .description("Sends a truth question")
+}
+
+pub async fn truth(bot: &Bot, command: &CommandInteraction) -> CreateInteractionResponse {
+    truth_or_dare(bot, "truth", command.guild_id.unwrap()).await
+}
+
+fn dare_command() -> CreateCommand {
+    CreateCommand::new("dare")
+        .description("Sends a dare question")
+}
+
+pub async fn dare(bot: &Bot, command: &CommandInteraction) -> CreateInteractionResponse {
+    truth_or_dare(bot, "dare", command.guild_id.unwrap()).await
 }

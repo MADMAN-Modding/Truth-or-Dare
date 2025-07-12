@@ -37,7 +37,7 @@ pub async fn embed_text(
             _ => "PG",
         };
 
-        let question = bot.get_random_question(question_type, rating, guild_id).await;
+        let question = bot.get_random_question(question_type, rating, Some(GuildId::new(guild_id as u64))).await;
 
         match &question {
             Ok(_) => {},
