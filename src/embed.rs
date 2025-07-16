@@ -2,7 +2,7 @@ use rand::random_bool;
 use serenity::all::{ButtonStyle, CreateActionRow, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId, Timestamp};
 
 use crate::{
-    bot::Bot, menu_type::{MenuToStr, MenuType}, other_impl::{EmbedMaker, FooterMaker, MessageMaker}, questions::{Question, QuestionTraits, QuestionType}
+    bot::Bot, menu_type::{MenuToStr, MenuType}, other_impl::{EmbedMaker, FooterMaker, MessageMaker}, questions::{Question, QuestionType}
 };
 
 use std::future::Future;

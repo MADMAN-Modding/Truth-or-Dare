@@ -25,12 +25,8 @@ pub struct Question {
     pub uid: String
 }
 
-pub trait QuestionTraits {
-    fn new(guild_id: i64, prompt: String, question_type: QuestionType, rating: String, uid: String) -> Question;
-}
-
-impl QuestionTraits for Question {
-    fn new(guild_id: i64, prompt: String, question_type: QuestionType, rating: String, uid: String) -> Question {
+impl Question {
+    pub fn new(guild_id: i64, prompt: String, question_type: QuestionType, rating: String, uid: String) -> Question {
         Question {
             guild_id,
             prompt,
